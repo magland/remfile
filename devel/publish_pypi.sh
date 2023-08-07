@@ -2,8 +2,7 @@
 
 set -ex
 
-mkdir -p dist
-rm -r dist/*
+rm -rf dist/*
 
 python -m build
 
