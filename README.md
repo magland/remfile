@@ -12,7 +12,7 @@ import remfile
 
 url = 'https://dandiarchive.s3.amazonaws.com/blobs/d86/055/d8605573-4639-4b99-a6d9-e0ac13f9a7df'
 
-file = remfil.File(url)
+file = remfile.File(url)
 
 with h5py.File(file, 'r') as f:
     print(f['/'].keys())
