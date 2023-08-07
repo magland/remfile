@@ -1,5 +1,3 @@
-# Here's the much faster alternative
-
 import requests
 
 class RemFile:
@@ -10,14 +8,13 @@ class RemFile:
         self._url = url
         self._position = 0
         self._smart_loader_last_chunk_index_read = -99
-        self._smart_loader_string_length = 1
-        self._get_file_length()
-
-    def _get_file_length(self):
+        self._smart_loader_chunk_sequence_length = 1
         response = requests.head(self._url)
         self.length = int(response.headers['Content-Length'])
 
     def read(self, size=None):
+        if size is None:
+            raise Exception('The size argument must be provided in remfile')
         chunk_start_index = self._position // self._chunk_size
         chunk_end_index = (self._position + size - 1) // self._chunk_size
         for chunk_index in range(chunk_start_index, chunk_end_index + 1):
@@ -50,27 +47,27 @@ class RemFile:
         if chunk_index in self._chunks:
             return
         if chunk_index == self._smart_loader_last_chunk_index_read + 1:
-            # round up to the string length times 1.5
-            self._smart_loader_string_length = round(self._smart_loader_string_length * 1.5 + 0.5)
-            if self._smart_loader_string_length > 15 * 1024 * 1024 / self._chunk_size:
-                self._smart_loader_string_length = int(15 * 1024 * 1024 / self._chunk_size)
+            # round up to the chunk sequence length times 1.5
+            self._smart_loader_chunk_sequence_length = round(self._smart_loader_chunk_sequence_length * 1.5 + 0.5)
+            if self._smart_loader_chunk_sequence_length > 15 * 1024 * 1024 / self._chunk_size:
+                self._smart_loader_chunk_sequence_length = int(15 * 1024 * 1024 / self._chunk_size)
         else:
-            self._smart_loader_string_length = 1
+            self._smart_loader_chunk_sequence_length = 1
         if self._verbose:
-            print(f"Loading chunks {chunk_index} ({self._smart_loader_string_length})")
+            print(f"Loading chunks {chunk_index} ({self._smart_loader_chunk_sequence_length})")
         data_start = chunk_index * self._chunk_size
-        data_end = data_start + self._chunk_size * self._smart_loader_string_length - 1
+        data_end = data_start + self._chunk_size * self._smart_loader_chunk_sequence_length - 1
         if data_end >= self.length:
             data_end = self.length - 1
         range_header = f"bytes={data_start}-{data_end}"
         response = requests.get(self._url, headers={'Range': range_header})
         x = response.content
-        if self._smart_loader_string_length == 1:
+        if self._smart_loader_chunk_sequence_length == 1:
             self._chunks[chunk_index] = x
         else:
-            for i in range(self._smart_loader_string_length):
+            for i in range(self._smart_loader_chunk_sequence_length):
                 self._chunks[chunk_index + i] = x[i * self._chunk_size:(i + 1) * self._chunk_size]
-        self._smart_loader_last_chunk_index_read = chunk_index + self._smart_loader_string_length - 1
+        self._smart_loader_last_chunk_index_read = chunk_index + self._smart_loader_chunk_sequence_length - 1
 
     def seek(self, offset, whence=0):
         if whence == 0:
