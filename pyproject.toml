@@ -20,12 +20,17 @@ dependencies = [
     "h5py"
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest"
+]
+
 [project.urls]
 repository = "https://github.com/magland/remfile"
 
 [tool.setuptools.packages.find]
 include = ["remfile*"]
-exclude = ["devel"]
+exclude = ["devel", "tests"]
 
 [tool.setuptools.dynamic]
 readme = {file = ["README.md"], content-type = "text/markdown"}

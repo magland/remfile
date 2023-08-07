@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 import requests
 
 class RemFile:
@@ -47,21 +48,19 @@ class RemFile:
         if chunk_index in self._chunks:
             return
         if chunk_index == self._smart_loader_last_chunk_index_read + 1:
-            # round up to the chunk sequence length times 1.5
-            self._smart_loader_chunk_sequence_length = round(self._smart_loader_chunk_sequence_length * 1.5 + 0.5)
+            # round up to the chunk sequence length times 1.7
+            self._smart_loader_chunk_sequence_length = round(self._smart_loader_chunk_sequence_length * 1.7 + 0.5)
             if self._smart_loader_chunk_sequence_length > 15 * 1024 * 1024 / self._chunk_size:
                 self._smart_loader_chunk_sequence_length = int(15 * 1024 * 1024 / self._chunk_size)
         else:
             self._smart_loader_chunk_sequence_length = 1
-        if self._verbose:
-            print(f"Loading chunks {chunk_index} ({self._smart_loader_chunk_sequence_length})")
         data_start = chunk_index * self._chunk_size
         data_end = data_start + self._chunk_size * self._smart_loader_chunk_sequence_length - 1
+        if self._verbose:
+            print(f"Loading chunks starting at {chunk_index} ({(data_end - data_start + 1)/1e6} million bytes)")
         if data_end >= self.length:
             data_end = self.length - 1
-        range_header = f"bytes={data_start}-{data_end}"
-        response = requests.get(self._url, headers={'Range': range_header})
-        x = response.content
+        x = _get_bytes(self._url, data_start, data_end, verbose=self._verbose)
         if self._smart_loader_chunk_sequence_length == 1:
             self._chunks[chunk_index] = x
         else:
@@ -84,3 +83,45 @@ class RemFile:
 
     def close(self):
         pass
+
+bytes_per_thread = 3 * 1024 * 1024
+max_threads = 4
+
+def _get_bytes(url: str, start_byte: int, end_byte: int, verbose=False):
+    num_bytes = end_byte - start_byte + 1
+
+    # Function to be used in threads for fetching the byte ranges
+    def fetch_bytes(range_start, range_end):
+        range_header = f"bytes={range_start}-{range_end}"
+        response = requests.get(url, headers={'Range': range_header})
+        return response.content
+
+    if num_bytes < bytes_per_thread * 2:
+        # If the number of bytes is less than 2 times the bytes_per_thread,
+        # then we can just use a single thread
+        return fetch_bytes(start_byte, end_byte)
+    else:
+        num_threads = num_bytes // bytes_per_thread
+        if num_threads > max_threads:
+            num_threads = max_threads
+        byte_ranges = []
+        a = start_byte
+        for i in range(num_threads):
+            if i == num_threads - 1:
+                b = end_byte
+            else:
+                b = a + num_bytes // num_threads - 1
+            byte_ranges.append((a, b))
+            a = b + 1
+        
+        if verbose:
+            print(f"Fetching {num_bytes} bytes in {num_threads} threads")
+
+        # Using ThreadPoolExecutor to manage the threads
+        with ThreadPoolExecutor(max_workers=num_threads) as executor:
+            # Mapping fetch_bytes function to the byte_ranges
+            results = list(executor.map(lambda r: fetch_bytes(*r), byte_ranges))
+
+        # Concatenating the results to form the final content
+        final_content = b''.join(results)
+        return final_content
