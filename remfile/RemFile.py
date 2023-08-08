@@ -1,6 +1,8 @@
+from typing import Union
 import time
 from concurrent.futures import ThreadPoolExecutor
 import requests
+from .DiskCache import DiskCache
 
 default_min_chunk_size = 100 * 1024
 default_max_cache_size = 1e8
@@ -12,6 +14,7 @@ class RemFile:
     def __init__(self,
         url: str, *,
         verbose: bool=False,
+        disk_cache: Union[DiskCache, None]=None,
         _min_chunk_size: int=default_min_chunk_size,
         _max_cache_size: int=default_max_cache_size,
         _chunk_increment_factor: int=default_chunk_increment_factor,
@@ -25,6 +28,7 @@ class RemFile:
         Args:
             url (str): The url of the remote file.
             verbose (bool, optional): Whether to print info for debugging. Defaults to False.
+            disk_cache (DiskCache, optional): A disk cache for storing the chunks of the file. Defaults to None.
             _min_chunk_size (int, optional): The minimum chunk size. When reading, the chunks will be loaded in multiples of this size.
             _max_cache_size (int, optional): The maximum number of bytes to keep in the cache.
             _chunk_increment_factor (int, optional): The factor by which to increase the number of chunks to load when the system detects that the chunks are being loaded in order.
@@ -33,6 +37,9 @@ class RemFile:
             _max_chunk_size (int, optional): The maximum chunk size. When reading, the chunks will be loaded in multiples of the minimum chunk size up to this size.
             _impose_request_failures_for_testing (bool, optional): Whether to impose request failures for testing purposes. Defaults to False.
         """
+        self._url = url
+        self._verbose = verbose
+        self._disk_cache = disk_cache
         self._min_chunk_size = _min_chunk_size
         self._max_chunks_in_cache = int(_max_cache_size / _min_chunk_size)
         self._chunk_increment_factor = _chunk_increment_factor
@@ -40,10 +47,8 @@ class RemFile:
         self._max_threads = _max_threads
         self._max_chunk_size = _max_chunk_size
         self._impose_request_failures_for_testing = _impose_request_failures_for_testing
-        self._verbose = verbose
         self._chunks = {}
         self._chunk_indices: list[int] = [] # list of chunk indices in order of loading for purposes of cleaning up the cache
-        self._url = url
         self._position = 0
         self._smart_loader_last_chunk_index_accessed = -99
         self._smart_loader_chunk_sequence_length = 1
@@ -111,6 +116,15 @@ class RemFile:
         if chunk_index in self._chunks:
             self._smart_loader_last_chunk_index_accessed = chunk_index
             return
+        
+        if self._disk_cache:
+            kk = _key_for_disk_cache(self._url, self._min_chunk_size, chunk_index)
+            cached_value = self._disk_cache.get(kk)
+            if cached_value:
+                self._chunks[chunk_index] = cached_value
+                self._chunk_indices.append(chunk_index)
+                self._smart_loader_last_chunk_index_accessed = chunk_index
+                return
 
         if chunk_index == self._smart_loader_last_chunk_index_accessed + 1:
             # round up to the chunk sequence length times 1.7
@@ -142,10 +156,14 @@ class RemFile:
         )
         if self._smart_loader_chunk_sequence_length == 1:
             self._chunks[chunk_index] = x
+            if self._disk_cache:
+                self._disk_cache.set(_key_for_disk_cache(self._url, self._min_chunk_size, chunk_index), self._chunks[chunk_index])
             self._chunk_indices.append(chunk_index)
         else:
             for i in range(self._smart_loader_chunk_sequence_length):
                 self._chunks[chunk_index + i] = x[i * self._min_chunk_size:(i + 1) * self._min_chunk_size]
+                if self._disk_cache:
+                    self._disk_cache.set(_key_for_disk_cache(self._url, self._min_chunk_size, chunk_index + i), self._chunks[chunk_index + i])
                 self._chunk_indices.append(chunk_index + i)
         self._smart_loader_last_chunk_index_accessed = chunk_index + self._smart_loader_chunk_sequence_length - 1
 
@@ -173,6 +191,9 @@ class RemFile:
 
     def close(self):
         pass
+
+def _key_for_disk_cache(url: str, min_chunk_size: int, chunk_index: int):
+    return f'{url}|{min_chunk_size}|{chunk_index}'
 
 _num_request_retries = 8
 

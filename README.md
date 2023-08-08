@@ -40,11 +40,27 @@ See a timing comparison betweeen remfile and fsspec in the examples directory.
 
 A file-like object is created that reads the remote file in chunks using the requests library. A relatively small default chunk size is used, but when the system detects that a large data array is being accessed, it switches to a larger chunk size. For very large data arrays, the system will use multiple threads to read the data in parallel.
 
+## Disk caching
+
+The following example shows how to use disk caching. Notice that this is not an LRU cache, so there is no cleanup operation. The cache will grow until the disk is full. Therefore, you are responsible for deleting the directory when you are done with it.
+
+```python
+import remfile
+
+url = 'https://dandiarchive.s3.amazonaws.com/blobs/d86/055/d8605573-4639-4b99-a6d9-e0ac13f9a7df'
+
+cache_dirname = '/tmp/remfile_test_cache'
+disk_cache = remfile.DiskCache(cache_dirname)
+
+file = remfile.File(url, disk_cache=disk_cache)
+
+with h5py.File(file, 'r') as f:
+    print(f['/'].keys())
+```
+
 ## Caveats
 
 This library is not intended to be a general purpose library for reading remote files. It is optimized for reading hdf5 files.
-
-At this time, remfile provides only an in-memory cache, not an on-disk cache.
 
 ## License
 
