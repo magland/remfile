@@ -1,3 +1,4 @@
-__version__ = '0.1.3'
+import importlib.metadata
+__version__ = importlib.metadata.version("remfile")
 
 from .RemFile import RemFile as File
