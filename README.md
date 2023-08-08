@@ -42,7 +42,7 @@ A file-like object is created that reads the remote file in chunks using the req
 
 ## Disk caching
 
-The following example shows how to use disk caching. Notice that this is not an LRU cache, so there is no cleanup operation. The cache will grow until the disk is full. Therefore, you are responsible for deleting the directory when you are done with it.
+The following example shows how to use disk caching. It is important to note that this is not an LRU cache, so there is no cleanup operation. The cache will grow until the disk is full. Therefore, you are responsible for deleting the directory when you are done with it.
 
 ```python
 import remfile
