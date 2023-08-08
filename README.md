@@ -45,6 +45,10 @@ A file-like object is created that reads the remote file in chunks using the req
 
 This library is not intended to be a general purpose library for reading remote files. It is optimized for reading hdf5 files.
 
+At this time, remfile provides only an in-memory cache, not an on-disk cache.
+
+At this time, remfile does not do automatic retries for failed requests.
+
 ## License
 
 Apache 2.0
