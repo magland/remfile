@@ -10,6 +10,8 @@ jobs:
     - uses: actions/checkout@v1
     - name: Install
       run: pip install .
+    - name: Install required packages (not sure why needed beyond pip install .)
+      run: pip install numpy h5py requests
     - name: Install packages needed for tests
       run: pip install pytest pytest-cov
     - name: Run tests and collect coverage
