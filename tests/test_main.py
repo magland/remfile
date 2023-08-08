@@ -53,5 +53,10 @@ def test_example2():
 def test_for_coverage():
     url = 'https://dandiarchive.s3.amazonaws.com/blobs/d86/055/d8605573-4639-4b99-a6d9-e0ac13f9a7df'
 
-    f = remfile.File(url)
+    f = remfile.File(url, _impose_request_failures_for_testing=True, verbose=True)
+
+    file = h5py.File(f)
+
+    assert file.attrs['neurodata_type'] == 'NWBFile'
+
     f.close()

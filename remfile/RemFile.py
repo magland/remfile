@@ -1,3 +1,4 @@
+import time
 from concurrent.futures import ThreadPoolExecutor
 import requests
 
@@ -16,7 +17,8 @@ class RemFile:
         _chunk_increment_factor: int=default_chunk_increment_factor,
         _bytes_per_thread: int=default_bytes_per_thread,
         _max_threads: int=default_max_threads,
-        _max_chunk_size: int=100 * 1024 * 1024
+        _max_chunk_size: int=100 * 1024 * 1024,
+        _impose_request_failures_for_testing: bool=False
     ):
         """Create a file-like object for reading a remote file. Optimized for reading hdf5 files. The arguments starting with an underscore are for testing and debugging purposes - they may experience breaking changes in the future.
 
@@ -29,6 +31,7 @@ class RemFile:
             _bytes_per_thread (int, optional): The minimum number of bytes to load in each thread.
             _max_threads (int, optional): The maximum number of threads to use when loading the file.
             _max_chunk_size (int, optional): The maximum chunk size. When reading, the chunks will be loaded in multiples of the minimum chunk size up to this size.
+            _impose_request_failures_for_testing (bool, optional): Whether to impose request failures for testing purposes. Defaults to False.
         """
         self._min_chunk_size = _min_chunk_size
         self._max_chunks_in_cache = int(_max_cache_size / _min_chunk_size)
@@ -36,6 +39,7 @@ class RemFile:
         self._bytes_per_thread = _bytes_per_thread
         self._max_threads = _max_threads
         self._max_chunk_size = _max_chunk_size
+        self._impose_request_failures_for_testing = _impose_request_failures_for_testing
         self._verbose = verbose
         self._chunks = {}
         self._chunk_indices: list[int] = [] # list of chunk indices in order of loading for purposes of cleaning up the cache
@@ -127,7 +131,15 @@ class RemFile:
             print(f"Loading {self._smart_loader_chunk_sequence_length} chunks starting at {chunk_index} ({(data_end - data_start + 1)/1e6} million bytes)")
         if data_end >= self.length:
             data_end = self.length - 1
-        x = _get_bytes(self._url, data_start, data_end, verbose=self._verbose, bytes_per_thread=self._bytes_per_thread, max_threads=self._max_threads)
+        x = _get_bytes(
+            self._url,
+            data_start,
+            data_end,
+            verbose=self._verbose,
+            bytes_per_thread=self._bytes_per_thread,
+            max_threads=self._max_threads,
+            _impose_request_failures_for_testing=self._impose_request_failures_for_testing
+        )
         if self._smart_loader_chunk_sequence_length == 1:
             self._chunks[chunk_index] = x
             self._chunk_indices.append(chunk_index)
@@ -162,7 +174,9 @@ class RemFile:
     def close(self):
         pass
 
-def _get_bytes(url: str, start_byte: int, end_byte: int, *, verbose=False, bytes_per_thread: int, max_threads: int):
+_num_request_retries = 8
+
+def _get_bytes(url: str, start_byte: int, end_byte: int, *, verbose=False, bytes_per_thread: int, max_threads: int, _impose_request_failures_for_testing=False):
     """Get bytes from a remote file.
 
     Args:
@@ -179,7 +193,7 @@ def _get_bytes(url: str, start_byte: int, end_byte: int, *, verbose=False, bytes
     num_bytes = end_byte - start_byte + 1
 
     # Function to be used in threads for fetching the byte ranges
-    def fetch_bytes(range_start: int, range_end: int):
+    def fetch_bytes(range_start: int, range_end: int, num_retries: int, verbose: bool):
         """Fetch a range of bytes from a remote file using the range header
 
         Args:
@@ -188,27 +202,43 @@ def _get_bytes(url: str, start_byte: int, end_byte: int, *, verbose=False, bytes
 
         Returns:
             bytes: The bytes fetched.
+            num_retries (int): The number of retries.
         """
-        range_header = f"bytes={range_start}-{range_end}"
-        response = requests.get(url, headers={'Range': range_header})
-        return response.content
+        for try_num in range(num_retries + 1):
+            try:
+                actual_url = url
+                if _impose_request_failures_for_testing:
+                    if try_num == 0:
+                        actual_url = '_error_' + url
+                range_header = f"bytes={range_start}-{range_end}"
+                response = requests.get(actual_url, headers={'Range': range_header})
+                return response.content
+            except Exception as e:
+                if try_num == num_retries:
+                    raise e # pragma: no cover
+                else:
+                    delay = 0.1 * 2 ** try_num
+                    if verbose:
+                        print(f"Retrying after exception: {e}")
+                        print(f'Waiting {delay} seconds')
+                    time.sleep(delay)
 
     if num_bytes < bytes_per_thread * 2:
         # If the number of bytes is less than 2 times the bytes_per_thread,
         # then we can just use a single thread
-        return fetch_bytes(start_byte, end_byte)
+        return fetch_bytes(start_byte, end_byte, _num_request_retries, verbose)
     else:
         num_threads = num_bytes // bytes_per_thread
         if num_threads > max_threads:
             num_threads = max_threads
-        byte_ranges = []
+        thread_args = []
         a = start_byte
         for i in range(num_threads):
             if i == num_threads - 1:
                 b = end_byte
             else:
                 b = a + num_bytes // num_threads - 1
-            byte_ranges.append((a, b))
+            thread_args.append((a, b, _num_request_retries, verbose))
             a = b + 1
         
         if verbose:
@@ -217,7 +247,7 @@ def _get_bytes(url: str, start_byte: int, end_byte: int, *, verbose=False, bytes
         # Using ThreadPoolExecutor to manage the threads
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
             # Mapping fetch_bytes function to the byte_ranges
-            results = list(executor.map(lambda r: fetch_bytes(*r), byte_ranges))
+            results = list(executor.map(lambda r: fetch_bytes(*r), thread_args))
 
         # Concatenating the results to form the final content
         final_content = b''.join(results)

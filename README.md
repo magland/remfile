@@ -4,7 +4,6 @@
 ![tests](https://github.com/magland/remfile/actions/workflows/tests.yml/badge.svg)
 [![codecov](https://codecov.io/gh/magland/remfile/branch/main/graph/badge.svg)](https://codecov.io/gh/magland/remfile)
 
-
 Provides a file-like object for reading a remote file over HTTP, optimized for use with h5py.
 
 Example usage:
