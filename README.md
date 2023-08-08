@@ -46,8 +46,6 @@ This library is not intended to be a general purpose library for reading remote 
 
 At this time, remfile provides only an in-memory cache, not an on-disk cache.
 
-At this time, remfile does not do automatic retries for failed requests.
-
 ## License
 
 Apache 2.0
