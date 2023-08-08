@@ -69,7 +69,7 @@ def test_disk_cache():
     if os.path.exists(tmp_dirname):
         assert tmp_dirname.startswith('/tmp/')
         shutil.rmtree(tmp_dirname)
-    disk_cache = remfile.ExperimentalDiskCache(tmp_dirname)
+    disk_cache = remfile.DiskCache(tmp_dirname)
 
     timer = time.time()
     test_example2(disk_cache=disk_cache)
