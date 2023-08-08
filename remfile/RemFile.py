@@ -199,10 +199,10 @@ def _get_bytes(url: str, start_byte: int, end_byte: int, *, verbose=False, bytes
         Args:
             range_start (int): The first byte to get.
             range_end (int): The last byte to get.
+            num_retries (int): The number of retries.
 
         Returns:
             bytes: The bytes fetched.
-            num_retries (int): The number of retries.
         """
         for try_num in range(num_retries + 1):
             try:
