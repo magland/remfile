@@ -52,8 +52,19 @@ class RemFile:
         self._position = 0
         self._smart_loader_last_chunk_index_accessed = -99
         self._smart_loader_chunk_sequence_length = 1
-        response = requests.head(self._url)
-        self.length = int(response.headers['Content-Length'])
+
+        # use aborted GET request rather than HEAD request to get the length
+        # this is needed for presigned AWS URLs because HEAD requests are not supported
+        response = requests.get(self._url, stream=True)
+        if response.status_code == 200:
+            self.length = int(response.headers['Content-Length'])
+        else:
+            raise Exception(f"Error getting file length: {response.status_code} {response.reason}")
+        # Close the connection without reading the content to avoid downloading the whole file
+        response.close()
+        
+        # response = requests.head(self._url)
+        # self.length = int(response.headers['Content-Length'])
 
     def read(self, size=None):
         """Read bytes from the file.
