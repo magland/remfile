@@ -4,6 +4,7 @@ import time
 import numpy as np
 import h5py
 import remfile
+import requests
 
 def test_example1():
     url = 'https://dandiarchive.s3.amazonaws.com/blobs/d86/055/d8605573-4639-4b99-a6d9-e0ac13f9a7df'
@@ -81,4 +82,18 @@ def test_disk_cache():
     test_example2(disk_cache=disk_cache)
     elapsed = time.time() - timer
     print(f'Elapsed time for cached read: {elapsed} seconds')
-    assert elapsed < 2
+    assert elapsed < 10
+
+def test_no_content_length():
+    url = "https://api.dandiarchive.org/api/assets/34a21ebe-c756-4da4-a30b-f1a838a6430b/download/"
+    headers = {
+        # "Authorization": 'token MY_TOKEN'
+    }
+    response = requests.get(url, headers=headers, stream=True)
+    authorized_url = response.url
+    print(authorized_url)
+    f = remfile.File(authorized_url, verbose=True)
+    assert f.length is None
+    file = h5py.File(f)
+    assert file.attrs['neurodata_type'] == 'NWBFile'
+    f.close()

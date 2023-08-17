@@ -53,7 +53,10 @@ class RemFile:
         self._smart_loader_last_chunk_index_accessed = -99
         self._smart_loader_chunk_sequence_length = 1
         response = requests.head(self._url)
-        self.length = int(response.headers['Content-Length'])
+        try:
+            self.length = int(response.headers['Content-Length'])
+        except KeyError:
+            self.length = None
 
     def read(self, size=None):
         """Read bytes from the file.
@@ -143,7 +146,7 @@ class RemFile:
         data_end = data_start + self._min_chunk_size * self._smart_loader_chunk_sequence_length - 1
         if self._verbose:
             print(f"Loading {self._smart_loader_chunk_sequence_length} chunks starting at {chunk_index} ({(data_end - data_start + 1)/1e6} million bytes)")
-        if data_end >= self.length:
+        if self.length is not None and (data_end >= self.length):
             data_end = self.length - 1
         x = _get_bytes(
             self._url,
@@ -182,6 +185,8 @@ class RemFile:
         elif whence == 1:
             self._position += offset # pragma: no cover
         elif whence == 2:
+            if self.length is None:
+                raise Exception("Cannot seek relative to end of file because the length of the file is unknown.")
             self._position = self.length + offset
         else:
             raise ValueError("Invalid argument: 'whence' must be 0, 1, or 2.") # pragma: no cover

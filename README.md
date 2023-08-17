@@ -45,6 +45,7 @@ A file-like object is created that reads the remote file in chunks using the req
 The following example shows how to use disk caching. Notice that this is not an LRU cache, so there is no cleanup operation. The cache will grow until the disk is full. Therefore, you are responsible for deleting the directory when you are done with it.
 
 ```python
+import h5py
 import remfile
 
 url = 'https://dandiarchive.s3.amazonaws.com/blobs/d86/055/d8605573-4639-4b99-a6d9-e0ac13f9a7df'
