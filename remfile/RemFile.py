@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Any
 import time
 from concurrent.futures import ThreadPoolExecutor
 import requests
@@ -12,7 +12,7 @@ default_max_threads = 3
 
 class RemFile:
     def __init__(self,
-        url: str, *,
+        url: Union[str, Any], *,
         verbose: bool=False,
         disk_cache: Union[DiskCache, None]=None,
         _min_chunk_size: int=default_min_chunk_size,
@@ -26,7 +26,7 @@ class RemFile:
         """Create a file-like object for reading a remote file. Optimized for reading hdf5 files. The arguments starting with an underscore are for testing and debugging purposes - they may experience breaking changes in the future.
 
         Args:
-            url (str): The url of the remote file.
+            url (str): The url of the remote file, or an object with a .get_url() method. The latter is useful if the url is a presigned AWS URL that expires after a certain amount of time.
             verbose (bool, optional): Whether to print info for debugging. Defaults to False.
             disk_cache (DiskCache, optional): A disk cache for storing the chunks of the file. Defaults to None.
             _min_chunk_size (int, optional): The minimum chunk size. When reading, the chunks will be loaded in multiples of this size.
@@ -55,7 +55,7 @@ class RemFile:
 
         # use aborted GET request rather than HEAD request to get the length
         # this is needed for presigned AWS URLs because HEAD requests are not supported
-        response = requests.get(self._url, stream=True)
+        response = requests.get(_get_url_str(self._url), stream=True)
         if response.status_code == 200:
             self.length = int(response.headers['Content-Length'])
         else:
@@ -63,7 +63,7 @@ class RemFile:
         # Close the connection without reading the content to avoid downloading the whole file
         response.close()
         
-        # response = requests.head(self._url)
+        # response = requests.head(_get_url_str(self._url))
         # self.length = int(response.headers['Content-Length'])
 
     def read(self, size=None):
@@ -129,7 +129,7 @@ class RemFile:
             return
         
         if self._disk_cache:
-            kk = _key_for_disk_cache(self._url, self._min_chunk_size, chunk_index)
+            kk = _key_for_disk_cache(_get_url_str(self._url), self._min_chunk_size, chunk_index)
             cached_value = self._disk_cache.get(kk)
             if cached_value:
                 self._chunks[chunk_index] = cached_value
@@ -157,7 +157,7 @@ class RemFile:
         if data_end >= self.length:
             data_end = self.length - 1
         x = _get_bytes(
-            self._url,
+            _get_url_str(self._url),
             data_start,
             data_end,
             verbose=self._verbose,
@@ -168,13 +168,13 @@ class RemFile:
         if self._smart_loader_chunk_sequence_length == 1:
             self._chunks[chunk_index] = x
             if self._disk_cache:
-                self._disk_cache.set(_key_for_disk_cache(self._url, self._min_chunk_size, chunk_index), self._chunks[chunk_index])
+                self._disk_cache.set(_key_for_disk_cache(_get_url_str(self._url), self._min_chunk_size, chunk_index), self._chunks[chunk_index])
             self._chunk_indices.append(chunk_index)
         else:
             for i in range(self._smart_loader_chunk_sequence_length):
                 self._chunks[chunk_index + i] = x[i * self._min_chunk_size:(i + 1) * self._min_chunk_size]
                 if self._disk_cache:
-                    self._disk_cache.set(_key_for_disk_cache(self._url, self._min_chunk_size, chunk_index + i), self._chunks[chunk_index + i])
+                    self._disk_cache.set(_key_for_disk_cache(_get_url_str(self._url), self._min_chunk_size, chunk_index + i), self._chunks[chunk_index + i])
                 self._chunk_indices.append(chunk_index + i)
         self._smart_loader_last_chunk_index_accessed = chunk_index + self._smart_loader_chunk_sequence_length - 1
 
@@ -284,3 +284,9 @@ def _get_bytes(url: str, start_byte: int, end_byte: int, *, verbose=False, bytes
         # Concatenating the results to form the final content
         final_content = b''.join(results)
         return final_content
+
+def _get_url_str(url: Union[str, Any]):
+    if isinstance(url, str):
+        return url
+    else:
+        return url.get_url()
