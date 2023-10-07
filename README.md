@@ -24,7 +24,7 @@ with h5py.File(file, 'r') as f:
 
 See [examples/example1.py](examples/example1.py) for a more complete example.
 
-Note: url can either be a string or an object that has a get_url() method. The latter is useful if the url is a presigned AWS URL that expires after a certain amount of time. However, if you implement your own get_url() method, make sure it renews the signed URL only when necessary!
+Note: url can either be a string or an object that has a get_url() method. The latter is useful if the url is a presigned AWS URL that expires after a certain amount of time. However, if you implement your own get_url() method, make sure it renews the signed URL only when necessary.
 
 ## Installation
 
@@ -38,7 +38,7 @@ The conventional way of reading a remote hdf5 file is to use the fsspec library 
 
 See a timing comparison betweeen remfile and fsspec in the examples directory.
 
-Furthermore, since the url can be an object with a get_url() method, it is possible to use remfile in a context where presigned URLs need to be renewed. As mentioned above, if you implement your own get_url() method, make sure it renews the signed URL only when necessary!
+Furthermore, since the url can be an object with a get_url() method, it is possible to use remfile in a context where presigned URLs need to be renewed. As mentioned above, if you implement your own get_url() method, make sure it renews the signed URL only when necessary.
 
 ## How?
 
