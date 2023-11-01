@@ -5,7 +5,7 @@ import requests
 from .DiskCache import DiskCache
 
 default_min_chunk_size = 100 * 1024
-default_max_cache_size = 1e8
+default_max_cache_size = 1e9
 default_chunk_increment_factor = 1.7
 default_bytes_per_thread = 4 * 1024 * 1024
 default_max_threads = 3
@@ -113,7 +113,11 @@ class RemFile:
             if self._verbose:
                 print("Cleaning up cache")
             for chunk_index in self._chunk_indices[:int(self._max_chunks_in_cache * 0.5)]:
-                del self._chunks[chunk_index]
+                if chunk_index in self._chunks:
+                    del self._chunks[chunk_index]
+                else:
+                    # it is possible that the chunk was already deleted (repeated chunk index in the list)
+                    pass
             self._chunk_indices = self._chunk_indices[int(self._max_chunks_in_cache * 0.5):]
 
         return ret
@@ -149,7 +153,7 @@ class RemFile:
                     self._smart_loader_chunk_sequence_length = j
                     break
         else:
-            self._smart_loader_chunk_sequence_length = 1
+            self._smart_loader_chunk_sequence_length = round(self._smart_loader_chunk_sequence_length / 1.7 + 0.5)
         data_start = chunk_index * self._min_chunk_size
         data_end = data_start + self._min_chunk_size * self._smart_loader_chunk_sequence_length - 1
         if self._verbose:
