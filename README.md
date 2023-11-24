@@ -42,7 +42,7 @@ Furthermore, since the url can be an object with a get_url() method, it is possi
 
 ## How?
 
-A file-like object is created that reads the remote file in chunks using the requests library. A relatively small default chunk size is used, but when the system detects that a large data array is being accessed, it switches to a larger chunk size. For very large data arrays, the system will use multiple threads to read the data in parallel.
+A file-like object is created that reads the remote file in chunks using the requests library. A relatively small default chunk size is used, but when remfile detects that a large data array is being accessed, it adaptively switches to larger chunk sizes. For very large data arrays, the system will use multiple threads to read the data in parallel.
 
 ## Disk caching
 
