@@ -5,7 +5,7 @@ on: [workflow_dispatch]
 jobs:
   build:
     runs-on: ubuntu-latest
-    name: Test
+    name: Benchmarks
     steps:
     - uses: actions/checkout@v1
     # use conda
@@ -20,6 +20,6 @@ jobs:
     - name: Install pynbwb and fsspec
       run: pip install pynwb fsspec
     - name: Install the conda version of h5py which has ros3 support
-      run: pip uninstall -y h5py && conda install -y h5py
+      run: pip uninstall -y h5py && conda install -c conda-forge h5py
     - name: Run benchmarks
       run: python benchmarks/benchmarks.py
