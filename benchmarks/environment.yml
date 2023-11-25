@@ -1,5 +1,0 @@
-name: remfile_benchmarks
-channels:
-  - defaults
-dependencies:
-  - python=3.8
