@@ -1,0 +1,25 @@
+name: benchmarks
+
+on: [workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Test
+    steps:
+    - uses: actions/checkout@v1
+    # use conda
+    - name: Set up conda
+      uses: conda-incubator/setup-miniconda@v2
+      with:
+        python-version: 3.7
+        environment-file: benchmarks/environment.yml
+        auto-active-base: true
+    - name: Install
+      run: pip install .
+    - name: Install pynbwb and fsspec
+      run: pip install pynwb fsspec
+    - name: Install the conda version of h5py which has ros3 support
+      run: pip uninstall -y h5py && conda install -y h5py
+    - name: Run benchmarks
+      run: python benchmarks/benchmarks.py

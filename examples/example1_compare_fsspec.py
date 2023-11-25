@@ -1,6 +1,6 @@
 import time
 import h5py
-import fsspec   
+import fsspec
 
 url = 'https://dandiarchive.s3.amazonaws.com/blobs/d86/055/d8605573-4639-4b99-a6d9-e0ac13f9a7df'
 
