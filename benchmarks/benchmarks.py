@@ -6,7 +6,7 @@ import h5py
 
 
 def main():
-    test_nwb_urls = [
+    read_nwbfile_examples = [
         {
             'name': '000711/sub-403491/sub-403491_ses-20180824T145125_image.nwb',
             'dandiset': '000711',
@@ -25,15 +25,26 @@ def main():
         }
     ]
 
+    # read_h5_dataset_example = [
+    #     {
+    #         'name': '000409/sub-CSHL049/sub-CSHL049_ses-c99d53e6-c317-4c53-99ba-070b26673ac4_behavior+ecephys+image.nwb',
+    #         'dandiset': '000409',
+    #         'version': 'draft',
+    #         'path': 'sub-CSHL049/sub-CSHL049_ses-c99d53e6-c317-4c53-99ba-070b26673ac4_behavior+ecephys+image.nwb',
+    #         'dandiarchive_link': 'https://dandiarchive.org/dandiset/000409/draft/files?location=sub-CSHL049&page=1',
+    #         'url': 'https://dandiarchive.s3.amazonaws.com/blobs/eb9/98f/eb998f72-3155-412f-a96a-779aaf1f9a0a'
+    #     }
+    # ]
+
     results = []
 
-    for test_nwb_url in test_nwb_urls:
-        name = test_nwb_url['name']
-        dandiset = test_nwb_url['dandiset']
-        version = test_nwb_url['version']
-        path = test_nwb_url['path']
-        dandiarchive_link = test_nwb_url['dandiarchive_link']
-        url = test_nwb_url['url']
+    for example in read_nwbfile_examples:
+        name = example['name']
+        dandiset = example['dandiset']
+        version = example['version']
+        path = example['path']
+        dandiarchive_link = example['dandiarchive_link']
+        url = example['url']
 
         print('**********************')
         print(f'Testing {name}')
@@ -44,13 +55,13 @@ def main():
         print(f'url: {url}')
         print('')
         for method in ['remfile', 'fsspec', 'ros3']:
-            result = _run_benchmark_test(url, method)
+            result = _read_nwbfile_benchmark(url, method)
             results.append(result)
 
     with open('results.json', 'w') as f:
         f.write(str(results))
 
-def _run_benchmark_test(url: str, method: str):
+def _read_nwbfile_benchmark(url: str, method: str):
     print(f'Running benchmark with method: {method}')
     timer = time.time()
 
