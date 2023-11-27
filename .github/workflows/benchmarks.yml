@@ -13,6 +13,7 @@ jobs:
     - name: Install pynbwb and fsspec
       run: pip install pynwb fsspec
     - name: Install the conda version of h5py which has ros3 support
-      run: pip uninstall -y h5py && conda install -y -c conda-forge "h5py>=3"
+      # run: pip uninstall -y h5py && conda install -y -c conda-forge "h5py>=3"
+      run: conda install -y -c conda-forge "h5py>=3"
     - name: Run benchmarks
       run: python benchmarks/benchmarks.py
