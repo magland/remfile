@@ -32,7 +32,7 @@ def main():
             'name': 'np test1',
             'url': 'https://dandiarchive.s3.amazonaws.com/blobs/eb9/98f/eb998f72-3155-412f-a96a-779aaf1f9a0a',
             'dataset_path': '/acquisition/ElectricalSeriesAp/data',
-            'num_timepoints': 30000 * 5
+            'num_timepoints': 30000 * 10
         }
     ]
 
@@ -86,11 +86,12 @@ def main():
             results_md += f"| {result['dandiset']} | {result['version']} | {result['path']} | {result['method']} | {result['elapsed_time_sec']} |\n"
     results_md += '\n\n'
     results_md += '## Read H5 Dataset\n\n'
-    results_md += '| name | method | elapsed_time_sec |\n'
-    results_md += '|------|--------|------------------|\n'
+    results_md += 'Reading 10 seconds of a 384-channel ephys dataset.\n\n'
+    results_md += '| method | elapsed_time_sec |\n'
+    results_md += '|--------|------------------|\n'
     for result in results:
         if result['type'] == 'read_h5_dataset':
-            results_md += f"| {result['name']} | {result['method']} | {result['elapsed_time_sec']} |\n"
+            results_md += f"| {result['method']} | {result['elapsed_time_sec']} |\n"
     results_md += '\n\n'
 
     if not os.path.exists('results'):
