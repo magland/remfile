@@ -72,18 +72,18 @@ def main():
         print(f'url: {url}')
         print('')
         for method in ['remfile', 'fsspec', 'ros3']:
-            result = _read_nwbfile_benchmark(url=url, method=method)
+            result = _read_nwbfile_benchmark(url=url, method=method, dandiset=dandiset, version=version, path=path)
             results.append(result)
             print('')
 
     results_md = ''
     results_md += '# Results\n\n'
     results_md += '## Read NWBFile\n\n'
-    results_md += '| dandiset | version | method | elapsed_time_sec |\n'
-    results_md += '|----------|---------|--------|------------------|\n'
+    results_md += '| dandiset | version | path | method | elapsed_time_sec |\n'
+    results_md += '|----------|--------|------|--------|------------------|\n'
     for result in results:
         if result['type'] == 'read_nwbfile':
-            results_md += f"| {result['dandiset']} | {result['version']} | {result['method']} | {result['elapsed_time_sec']} |\n"
+            results_md += f"| {result['dandiset']} | {result['version']} | {result['path']} | {result['method']} | {result['elapsed_time_sec']} |\n"
     results_md += '\n\n'
     results_md += '## Read H5 Dataset\n\n'
     results_md += '| name | method | elapsed_time_sec |\n'
@@ -106,7 +106,7 @@ def main():
 
     print(results_md)
 
-def _read_nwbfile_benchmark(*, url: str, method: str):
+def _read_nwbfile_benchmark(*, url: str, method: str, dandiset: str, version: str, path: str):
     print(f'Running benchmark with method: {method}')
     timer = time.time()
 
@@ -131,6 +131,9 @@ def _read_nwbfile_benchmark(*, url: str, method: str):
         'type': 'read_nwbfile',
         'url': url,
         'method': method,
+        'dandiset': dandiset,
+        'version': version,
+        'path': path,
         'elapsed_time_sec': elapsed_time_sec
     }
 
