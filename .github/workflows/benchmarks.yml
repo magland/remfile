@@ -6,6 +6,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     name: Benchmarks
+    defaults:
+        run:
+          # needed for conda to be able to work
+          shell: bash -l {0}
     steps:
     - uses: conda-incubator/setup-miniconda@v2
       with:
