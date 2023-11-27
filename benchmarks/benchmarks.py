@@ -1,4 +1,5 @@
 import time
+import json
 import remfile
 import fsspec
 from pynwb import NWBHDF5IO
@@ -25,18 +26,33 @@ def main():
         }
     ]
 
-    # read_h5_dataset_example = [
-    #     {
-    #         'name': '000409/sub-CSHL049/sub-CSHL049_ses-c99d53e6-c317-4c53-99ba-070b26673ac4_behavior+ecephys+image.nwb',
-    #         'dandiset': '000409',
-    #         'version': 'draft',
-    #         'path': 'sub-CSHL049/sub-CSHL049_ses-c99d53e6-c317-4c53-99ba-070b26673ac4_behavior+ecephys+image.nwb',
-    #         'dandiarchive_link': 'https://dandiarchive.org/dandiset/000409/draft/files?location=sub-CSHL049&page=1',
-    #         'url': 'https://dandiarchive.s3.amazonaws.com/blobs/eb9/98f/eb998f72-3155-412f-a96a-779aaf1f9a0a'
-    #     }
-    # ]
+    read_h5_dataset_examples = [
+        {
+            'name': 'np test1',
+            'url': 'https://dandiarchive.s3.amazonaws.com/blobs/eb9/98f/eb998f72-3155-412f-a96a-779aaf1f9a0a',
+            'dataset_path': '/acquisition/ElectricalSeriesAp/data',
+            'num_timepoints': 30000 * 5
+        }
+    ]
 
     results = []
+
+    for example in read_h5_dataset_examples:
+        name = example['name']
+        url = example['url']
+        dataset_path = example['dataset_path']
+        num_timepoints = example['num_timepoints']
+
+        print('**********************')
+        print(f'Testing read h5 dataset {name}')
+        print(f'url: {url}')
+        print(f'dataset_path: {dataset_path}')
+        print(f'num_timepoints: {num_timepoints}')
+        print('')
+        for method in ['remfile', 'fsspec', 'ros3']:
+            result = _read_h5_dataset_benchmark(url=url, dataset_path=dataset_path, num_timepoints=num_timepoints, method=method)
+            results.append(result)
+            print('')
 
     for example in read_nwbfile_examples:
         name = example['name']
@@ -47,7 +63,7 @@ def main():
         url = example['url']
 
         print('**********************')
-        print(f'Testing {name}')
+        print(f'Testing read nwbfile {name}')
         print(f'dandiset: {dandiset}')
         print(f'version: {version}')
         print(f'path: {path}')
@@ -55,13 +71,16 @@ def main():
         print(f'url: {url}')
         print('')
         for method in ['remfile', 'fsspec', 'ros3']:
-            result = _read_nwbfile_benchmark(url, method)
+            result = _read_nwbfile_benchmark(url=url, method=method)
             results.append(result)
+            print('')
 
     with open('results.json', 'w') as f:
         f.write(str(results))
+    
+    print(json.dumps(results, indent=4))
 
-def _read_nwbfile_benchmark(url: str, method: str):
+def _read_nwbfile_benchmark(*, url: str, method: str):
     print(f'Running benchmark with method: {method}')
     timer = time.time()
 
@@ -83,7 +102,44 @@ def _read_nwbfile_benchmark(url: str, method: str):
     print(f'Elapsed time: {elapsed_time_sec} seconds')
 
     return {
+        'type': 'read_nwbfile',
         'url': url,
+        'method': method,
+        'elapsed_time_sec': elapsed_time_sec
+    }
+
+def _read_h5_dataset_benchmark(*, url: str, dataset_path: str, num_timepoints: int, method: str):
+    print(f'Running benchmark with method: {method}')
+    timer = time.time()
+
+    if method == 'remfile':
+        file = remfile.File(url)
+        h5_file = h5py.File(file, 'r')
+    elif method == 'fsspec':
+        fs = fsspec.filesystem('http')
+        file = fs.open(url)
+        h5_file = h5py.File(file, 'r')
+    elif method == 'ros3':
+        h5_file = h5py.File(url, 'r', driver='ros3')
+    else:
+        raise Exception(f'Unknown method: {method}')
+
+    dataset = h5_file[dataset_path]
+    assert isinstance(dataset, h5py.Dataset)
+
+    print(f'Dataset shape: {dataset.shape}')
+
+    y = dataset[:num_timepoints]
+    print(f'Extracted subarray shape: {y.shape}')
+
+    elapsed_time_sec = time.time() - timer
+    print(f'Elapsed time: {elapsed_time_sec} seconds')
+
+    return {
+        'type': 'read_h5_dataset',
+        'url': url,
+        'dataset_path': dataset_path,
+        'num_timepoints': num_timepoints,
         'method': method,
         'elapsed_time_sec': elapsed_time_sec
     }
