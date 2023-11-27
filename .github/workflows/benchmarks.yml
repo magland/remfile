@@ -26,6 +26,8 @@ jobs:
     - name: Store results to benchmark branch
       uses: stefanzweifel/git-auto-commit-action@v5
       with:
+        commit_author_email: jmagland@flatironinstitute.org
+        commit_author_name: Jeremy Magland
         commit_message: "Update benchmark results"
         file_pattern: "results/*"
         branch: "benchmark"
