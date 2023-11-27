@@ -1,5 +1,6 @@
 import time
 import json
+import os
 import remfile
 import fsspec
 from pynwb import NWBHDF5IO
@@ -75,10 +76,35 @@ def main():
             results.append(result)
             print('')
 
-    with open('results.json', 'w') as f:
-        f.write(str(results))
-    
+    results_md = ''
+    results_md += '# Results\n\n'
+    results_md += '## Read NWBFile\n\n'
+    results_md += '| dandiset | version | method | elapsed_time_sec |\n'
+    results_md += '|----------|---------|--------|------------------|\n'
+    for result in results:
+        if result['type'] == 'read_nwbfile':
+            results_md += f"| {result['dandiset']} | {result['version']} | {result['method']} | {result['elapsed_time_sec']} |\n"
+    results_md += '\n\n'
+    results_md += '## Read H5 Dataset\n\n'
+    results_md += '| name | method | elapsed_time_sec |\n'
+    results_md += '|------|--------|------------------|\n'
+    for result in results:
+        if result['type'] == 'read_h5_dataset':
+            results_md += f"| {result['name']} | {result['method']} | {result['elapsed_time_sec']} |\n"
+    results_md += '\n\n'
+
+    if not os.path.exists('results'):
+        os.makedirs('results')
+
+    with open('results/results.json', 'w') as f:
+        f.write(json.dumps(results, indent=4))
+
+    with open('results/results.md', 'w') as f:
+        f.write(results_md)
+
     print(json.dumps(results, indent=4))
+
+    print(results_md)
 
 def _read_nwbfile_benchmark(*, url: str, method: str):
     print(f'Running benchmark with method: {method}')

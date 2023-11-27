@@ -23,3 +23,8 @@ jobs:
       run: pip uninstall -y h5py && conda install -y -c conda-forge "h5py>=3.2"
     - name: Run benchmarks
       run: python benchmarks/benchmarks.py
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v2
+      with:
+        name: benchmark-results
+        path: results/
