@@ -66,6 +66,10 @@ with h5py.File(file, 'r') as f:
 
 This library is not intended to be a general purpose library for reading remote files. It is optimized for reading hdf5 files.
 
+## Comparison with fsspec method
+
+See [pynwb_streaming_benchmark](https://github.com/scratchrealm/pynwb_streaming_benchmark)
+
 ## License
 
 Apache 2.0
