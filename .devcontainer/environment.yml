@@ -1,0 +1,8 @@
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - conda-forge::hdmf>=3.11.0, <4.0.0
+  - ipykernel
+  - pip:
+    - pynwb>=2.5.0, <3.0.0
