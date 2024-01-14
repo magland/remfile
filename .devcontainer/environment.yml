@@ -6,3 +6,6 @@ dependencies:
   - ipykernel
   - pip:
     - pynwb>=2.5.0, <3.0.0
+    - fsspec>=2023.12.2
+    - requests
+    - aiohttp

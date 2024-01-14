@@ -1,0 +1,131 @@
+========================================
+Trial 1 results:
+000409/draft/sub-CSHL047/sub-CSHL047_ses-2d5f6d81-38c4-4bdc-ac3c-302ea4d5f46e_behavior+ecephys+image.nwb
+Initial load time:
+  fsspec: 8.406779289245605
+  ros3: 65.11033082008362
+  remfile: 7.269445896148682
+30sec sample read time:
+  fsspec: 7.767350673675537
+  ros3: 25.407787799835205
+  remfile: 7.664768934249878
+
+========================================
+Trial 2 results:
+000409/draft/sub-CSHL047/sub-CSHL047_ses-2d5f6d81-38c4-4bdc-ac3c-302ea4d5f46e_behavior+ecephys+image.nwb
+Initial load time:
+  fsspec: 8.397607803344727
+  ros3: 60.269362926483154
+  remfile: 7.332708120346069
+30sec sample read time:
+  fsspec: 7.505052328109741
+  ros3: 24.588340997695923
+  remfile: 7.548480749130249
+
+========================================
+Trial 3 results:
+000409/draft/sub-CSHL047/sub-CSHL047_ses-2d5f6d81-38c4-4bdc-ac3c-302ea4d5f46e_behavior+ecephys+image.nwb
+Initial load time:
+  fsspec: 7.921534776687622
+  ros3: 63.130412340164185
+  remfile: 7.391016960144043
+30sec sample read time:
+  fsspec: 7.509680271148682
+  ros3: 23.62627935409546
+  remfile: 7.576016187667847
+
+========================================
+Trial 4 results:
+000409/draft/sub-CSHL047/sub-CSHL047_ses-2d5f6d81-38c4-4bdc-ac3c-302ea4d5f46e_behavior+ecephys+image.nwb
+Initial load time:
+  fsspec: 7.994905471801758
+  ros3: 63.5649254322052
+  remfile: 7.300605535507202
+30sec sample read time:
+  fsspec: 7.449061155319214
+  ros3: 24.791142463684082
+  remfile: 7.535526752471924
+
+========================================
+Trial 5 results:
+000409/draft/sub-CSHL047/sub-CSHL047_ses-2d5f6d81-38c4-4bdc-ac3c-302ea4d5f46e_behavior+ecephys+image.nwb
+Initial load time:
+  fsspec: 8.211846113204956
+  ros3: 63.61801099777222
+  remfile: 7.415935277938843
+30sec sample read time:
+  fsspec: 7.562915802001953
+  ros3: 25.427858591079712
+  remfile: 7.519706964492798
+
+========================================
+Trial 6 results:
+000409/draft/sub-CSHL047/sub-CSHL047_ses-2d5f6d81-38c4-4bdc-ac3c-302ea4d5f46e_behavior+ecephys+image.nwb
+Initial load time:
+  fsspec: 7.871404409408569
+  ros3: 61.791791677474976
+  remfile: 7.263067722320557
+30sec sample read time:
+  fsspec: 7.500272274017334
+  ros3: 23.86580729484558
+  remfile: 7.533263921737671
+
+========================================
+Trial 7 results:
+000409/draft/sub-CSHL047/sub-CSHL047_ses-2d5f6d81-38c4-4bdc-ac3c-302ea4d5f46e_behavior+ecephys+image.nwb
+Initial load time:
+  fsspec: 7.7305378913879395
+  ros3: 63.38391995429993
+  remfile: 7.072705984115601
+30sec sample read time:
+  fsspec: 7.622012138366699
+  ros3: 25.32817792892456
+  remfile: 7.4724977016448975
+
+========================================
+Trial 8 results:
+000409/draft/sub-CSHL047/sub-CSHL047_ses-2d5f6d81-38c4-4bdc-ac3c-302ea4d5f46e_behavior+ecephys+image.nwb
+Initial load time:
+  fsspec: 8.000757694244385
+  ros3: 61.6144802570343
+  remfile: 7.414167165756226
+30sec sample read time:
+  fsspec: 7.4515790939331055
+  ros3: 23.938932418823242
+  remfile: 7.716952085494995
+
+========================================
+Trial 9 results:
+000409/draft/sub-CSHL047/sub-CSHL047_ses-2d5f6d81-38c4-4bdc-ac3c-302ea4d5f46e_behavior+ecephys+image.nwb
+Initial load time:
+  fsspec: 8.008319854736328
+  ros3: 64.2772605419159
+  remfile: 7.05689263343811
+30sec sample read time:
+  fsspec: 7.484097003936768
+  ros3: 24.203564882278442
+  remfile: 7.557681322097778
+
+========================================
+Trial 10 results:
+000409/draft/sub-CSHL047/sub-CSHL047_ses-2d5f6d81-38c4-4bdc-ac3c-302ea4d5f46e_behavior+ecephys+image.nwb
+Initial load time:
+  fsspec: 8.025505781173706
+  ros3: 62.66921138763428
+  remfile: 7.309049367904663
+30sec sample read time:
+  fsspec: 7.49516749382019
+  ros3: 25.72139549255371
+  remfile: 7.586484432220459
+
+========================================
+Trial 11 results:
+000409/draft/sub-CSHL047/sub-CSHL047_ses-2d5f6d81-38c4-4bdc-ac3c-302ea4d5f46e_behavior+ecephys+image.nwb
+Initial load time:
+  fsspec: 7.777570009231567
+  ros3: 63.84179377555847
+  remfile: 7.326595306396484
+30sec sample read time:
+  fsspec: 7.594797611236572
+  ros3: 26.23443293571472
+  remfile: 7.472414255142212
