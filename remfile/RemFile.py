@@ -214,6 +214,8 @@ class RemFile:
             self._chunk_indices.append(chunk_index)
         else:
             for i in range(self._smart_loader_chunk_sequence_length):
+                if i * self._min_chunk_size >= len(x):
+                    break
                 self._chunks[chunk_index + i] = x[
                     i * self._min_chunk_size: (i + 1) * self._min_chunk_size
                 ]
