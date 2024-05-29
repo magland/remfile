@@ -422,7 +422,7 @@ async def _create_lite(url: str):
         '''
         js.eval(aa)
         content_length = await js.getContentLengthOfRemoteFile(url)
-        return content_length
+        return int(content_length)
     size = await get_content_length_of_remote_file(url)
     return RemFile(
         url=url,
