@@ -25,6 +25,8 @@ class RemFile:
         _max_threads: int = default_max_threads,
         _max_chunk_size: int = 100 * 1024 * 1024,
         _impose_request_failures_for_testing: bool = False,
+        _size: Union[int, None] = None,
+        _use_session: bool = True
     ):
         """Create a file-like object for reading a remote file. Optimized for reading hdf5 files. The arguments starting with an underscore are for testing and debugging purposes - they may experience breaking changes in the future.
 
@@ -39,6 +41,8 @@ class RemFile:
             _max_threads (int, optional): The maximum number of threads to use when loading the file.
             _max_chunk_size (int, optional): The maximum chunk size. When reading, the chunks will be loaded in multiples of the minimum chunk size up to this size.
             _impose_request_failures_for_testing (bool, optional): Whether to impose request failures for testing purposes. Defaults to False.
+            _size: The size of the file in bytes. If not provided, the size will be determined by making a GET request to the file.
+            _use_session: Whether to use a requests.Session object for making requests. Defaults to True.
         """
         self._url = url
         self._verbose = verbose
@@ -60,21 +64,35 @@ class RemFile:
         self._smart_loader_last_chunk_index_accessed = -99
         self._smart_loader_chunk_sequence_length = 1
 
-        # use aborted GET request rather than HEAD request to get the length
-        # this is needed for presigned AWS URLs because HEAD requests are not supported
-        response = requests.get(_get_url_str(self._url), stream=True)
-        if response.status_code == 200:
-            self.length = int(response.headers["Content-Length"])
-        else:
-            raise Exception(
-                f"Error getting file length: {response.status_code} {response.reason}"
-            )
-        # Close the connection without reading the content to avoid downloading the whole file
-        response.close()
+        if _size is None or _use_session is True:
+            _assert_we_are_not_using_pyodide()
 
-        # response = requests.head(_get_url_str(self._url))
-        # self.length = int(response.headers['Content-Length'])
-        self.session = requests.Session()
+        if _size is None:
+            # use aborted GET request rather than HEAD request to get the length
+            # this is needed for presigned AWS URLs because HEAD requests are not supported
+            response = requests.get(_get_url_str(self._url), stream=True)
+            if response.status_code == 200:
+                self.length = int(response.headers["Content-Length"])
+            else:
+                raise Exception(
+                    f"Error getting file length: {response.status_code} {response.reason}"
+                )
+            # Close the connection without reading the content to avoid downloading the whole file
+            response.close()
+
+            # response = requests.head(_get_url_str(self._url))
+            # self.length = int(response.headers['Content-Length'])
+        else:
+            self.length = _size
+
+        if _use_session:
+            self.session = requests.Session()
+        else:
+            self.session = None
+
+    async def create_lite(url: str):
+        # for use with pyodide/jupyterlite
+        return await _create_lite(url)
 
     def read(self, size=None):
         """Read bytes from the file.
@@ -269,7 +287,7 @@ _num_request_retries = 8
 
 
 def _get_bytes(
-    session: requests.Session,
+    session: Union[requests.Session, None],
     url: str,
     start_byte: int,
     end_byte: int,
@@ -313,9 +331,12 @@ def _get_bytes(
                     if try_num == 0:
                         actual_url = "_error_" + url
                 range_header = f"bytes={range_start}-{range_end}"
-                # response = requests.get(actual_url, headers={'Range': range_header})
-                # use session to avoid creating a new connection each time
-                response = session.get(actual_url, headers={"Range": range_header})
+
+                if session:
+                    # use session to avoid creating a new connection each time
+                    response = session.get(actual_url, headers={"Range": range_header})
+                else:
+                    response = requests.get(actual_url, headers={'Range': range_header})
                 return response.content
             except Exception as e:
                 if try_num == num_retries:
@@ -368,3 +389,51 @@ def _get_url_str(url: Union[str, Any]):
         return url
     else:
         return url.get_url()
+
+
+async def _create_lite(url: str):
+    try:
+        import pyodide
+    except ImportError:
+        # we must not be in a pyodide environment
+        # so let's just return a regular RemFile
+        return RemFile(url)
+
+    # if we are in a pyodide environment, we need
+    # to use javascript to get the content length
+    # via aborted GET request (DANDI limitation)
+    import js
+    async def get_content_length_of_remote_file(url: str):
+        # Due to DANDI limitations, we use an aborted GET
+        # and this requires using javascript in the browser
+        # because pyodide doesn't support incomplete GET requests
+        # via urllib3
+        aa = '''
+        async function getContentLengthOfRemoteFile(url, headers) {
+            const controller = new AbortController();
+            const signal = controller.signal;
+            const response = await fetch(url, {
+                signal,
+                headers
+            })
+            controller.abort();
+            return response.headers.get('content-length')
+        }
+        '''
+        js.eval(aa)
+        content_length = await js.getContentLengthOfRemoteFile(url)
+        return content_length
+    size = await get_content_length_of_remote_file(url)
+    return RemFile(
+        url=url,
+        _size=size,
+        _use_session=False
+    )
+
+
+def _assert_we_are_not_using_pyodide():
+    try:
+        import pyodide
+        raise Exception("You cannot use RemFile in a pyodide environment unless you use the remfile.File.create_lite(url) method.")
+    except ImportError:
+        pass
