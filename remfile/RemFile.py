@@ -291,6 +291,23 @@ def _key_for_disk_cache(url: str, min_chunk_size: int, chunk_index: int):
 _num_request_retries = 8
 
 
+class _PermanentHTTPError(Exception):
+    """An HTTP error that retrying cannot fix."""
+
+    pass
+
+
+def _is_permanent_http_error(status_code: int) -> bool:
+    """Whether an HTTP status is permanent, and so not worth retrying.
+
+    4xx means the request itself is wrong: the file is missing, the URL is
+    malformed, or presigned credentials have expired. Retrying just adds
+    latency. 429 (too many requests) is the exception -- it is a throttle, and
+    backing off is exactly the right response.
+    """
+    return 400 <= status_code < 500 and status_code != 429
+
+
 def _get_content_length(url: str, *, verbose: bool = False) -> int:
     """Get the length of a remote file, retrying on transient failures.
 
@@ -307,15 +324,23 @@ def _get_content_length(url: str, *, verbose: bool = False) -> int:
             response = requests.get(url, stream=True)
             try:
                 if response.status_code != 200:
-                    raise Exception(
+                    message = (
                         f"Error getting file length: "
                         f"{response.status_code} {response.reason}"
                     )
+                    if _is_permanent_http_error(response.status_code):
+                        # Opening a file that does not exist, or whose URL has
+                        # expired, should say so immediately rather than back
+                        # off for ~25 seconds first.
+                        raise _PermanentHTTPError(message)
+                    raise Exception(message)
                 return int(response.headers["Content-Length"])
             finally:
                 # Close the connection without reading the content so that we
                 # do not download the whole file.
                 response.close()
+        except _PermanentHTTPError:
+            raise
         except Exception as e:
             if try_num == _num_request_retries:
                 raise e
@@ -382,6 +407,14 @@ def _get_bytes(
                 # error response body (for example an S3 <Error>...</Error>
                 # document) would be returned to h5py as if it were file data.
                 if response.status_code not in (200, 206):
+                    if _is_permanent_http_error(response.status_code):
+                        # Retrying cannot fix a missing file, a bad URL, or
+                        # expired credentials -- it would only add ~25 seconds
+                        # of backoff before reporting the same error.
+                        raise _PermanentHTTPError(
+                            f"Error fetching bytes {range_start}-{range_end}: "
+                            f"{response.status_code} {response.reason}"
+                        )
                     raise Exception(
                         f"Error fetching bytes {range_start}-{range_end}: "
                         f"{response.status_code} {response.reason}"
@@ -401,6 +434,9 @@ def _get_bytes(
                     )
 
                 return content
+            except _PermanentHTTPError:
+                # Not retryable -- fail immediately rather than backing off.
+                raise
             except Exception as e:
                 if try_num == num_retries:
                     raise e  # pragma: no cover
