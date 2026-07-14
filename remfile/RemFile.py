@@ -68,20 +68,9 @@ class RemFile:
             _assert_we_are_not_using_pyodide()
 
         if _size is None:
-            # use aborted GET request rather than HEAD request to get the length
-            # this is needed for presigned AWS URLs because HEAD requests are not supported
-            response = requests.get(_get_url_str(self._url), stream=True)
-            if response.status_code == 200:
-                self.length = int(response.headers["Content-Length"])
-            else:
-                raise Exception(
-                    f"Error getting file length: {response.status_code} {response.reason}"
-                )
-            # Close the connection without reading the content to avoid downloading the whole file
-            response.close()
-
-            # response = requests.head(_get_url_str(self._url))
-            # self.length = int(response.headers['Content-Length'])
+            self.length = _get_content_length(
+                _get_url_str(self._url), verbose=verbose
+            )
         else:
             self.length = _size
 
@@ -284,6 +273,41 @@ def _key_for_disk_cache(url: str, min_chunk_size: int, chunk_index: int):
 
 
 _num_request_retries = 8
+
+
+def _get_content_length(url: str, *, verbose: bool = False) -> int:
+    """Get the length of a remote file, retrying on transient failures.
+
+    This is the first request of a file's life. It used to be a bare
+    requests.get with no retry, so a single transient failure (a network blip,
+    an S3 5xx) would fail the open outright -- even though every subsequent
+    read retries with backoff.
+
+    An aborted GET is used rather than a HEAD request because presigned AWS
+    URLs do not support HEAD.
+    """
+    for try_num in range(_num_request_retries + 1):
+        try:
+            response = requests.get(url, stream=True)
+            try:
+                if response.status_code != 200:
+                    raise Exception(
+                        f"Error getting file length: "
+                        f"{response.status_code} {response.reason}"
+                    )
+                return int(response.headers["Content-Length"])
+            finally:
+                # Close the connection without reading the content so that we
+                # do not download the whole file.
+                response.close()
+        except Exception as e:
+            if try_num == _num_request_retries:
+                raise e
+            delay = 0.1 * 2**try_num
+            if verbose:
+                print(f"Retrying after exception: {e}")
+                print(f"Waiting {delay} seconds")
+            time.sleep(delay)
 
 
 def _get_bytes(
