@@ -103,7 +103,12 @@ class RemFile:
         chunk_start_index = self._position // self._min_chunk_size
         chunk_end_index = (self._position + size - 1) // self._min_chunk_size
         for chunk_index in range(chunk_start_index, chunk_end_index + 1):
-            self._load_chunk(chunk_index)
+            # Tell the loader how many chunks this read still needs, so that a
+            # read spanning many chunks is fetched in one request rather than
+            # ramping up to it over several round trips.
+            self._load_chunk(
+                chunk_index, chunks_needed=chunk_end_index - chunk_index + 1
+            )
         if chunk_end_index == chunk_start_index:
             chunk = self._chunks[chunk_start_index]
             chunk_offset = self._position % self._min_chunk_size
@@ -147,11 +152,16 @@ class RemFile:
 
         return ret
 
-    def _load_chunk(self, chunk_index: int):
+    def _load_chunk(self, chunk_index: int, chunks_needed: int = 1):
         """Load a chunk of the file.
 
         Args:
             chunk_index (int): The index of the chunk to load.
+            chunks_needed (int): The number of chunks the current read still
+                needs, starting at chunk_index. The fetch is never smaller than
+                this, so a read spanning many chunks costs one request instead
+                of ramping up to it over several round trips. Read-ahead beyond
+                the requested range still follows the smart loader.
         """
         if chunk_index in self._chunks:
             self._smart_loader_last_chunk_index_accessed = chunk_index
@@ -173,22 +183,28 @@ class RemFile:
             self._smart_loader_chunk_sequence_length = round(
                 self._smart_loader_chunk_sequence_length * 1.7 + 0.5
             )
-            if (
-                self._smart_loader_chunk_sequence_length > self._max_chunk_size / self._min_chunk_size
-            ):
-                self._smart_loader_chunk_sequence_length = int(
-                    self._max_chunk_size / self._min_chunk_size
-                )
-            # make sure the chunk sequence length is valid
-            for j in range(1, self._smart_loader_chunk_sequence_length):
-                if chunk_index + j in self._chunks:
-                    # already loaded this chunk
-                    self._smart_loader_chunk_sequence_length = j
-                    break
         else:
             self._smart_loader_chunk_sequence_length = round(
                 self._smart_loader_chunk_sequence_length / 1.7 + 0.5
             )
+
+        # Never fetch less than what this read already needs. Without this, a
+        # read spanning many chunks pays a full round trip for each step of the
+        # geometric ramp.
+        if self._smart_loader_chunk_sequence_length < chunks_needed:
+            self._smart_loader_chunk_sequence_length = chunks_needed
+
+        max_chunk_sequence_length = int(self._max_chunk_size / self._min_chunk_size)
+        if self._smart_loader_chunk_sequence_length > max_chunk_sequence_length:
+            self._smart_loader_chunk_sequence_length = max_chunk_sequence_length
+
+        # make sure the chunk sequence length is valid
+        for j in range(1, self._smart_loader_chunk_sequence_length):
+            if chunk_index + j in self._chunks:
+                # already loaded this chunk
+                self._smart_loader_chunk_sequence_length = j
+                break
+
         data_start = chunk_index * self._min_chunk_size
         data_end = (
             data_start + self._min_chunk_size * self._smart_loader_chunk_sequence_length - 1
