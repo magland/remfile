@@ -337,7 +337,30 @@ def _get_bytes(
                     response = session.get(actual_url, headers={"Range": range_header})
                 else:
                     response = requests.get(actual_url, headers={'Range': range_header})
-                return response.content
+
+                # requests does not raise on 4xx/5xx, so without these checks an
+                # error response body (for example an S3 <Error>...</Error>
+                # document) would be returned to h5py as if it were file data.
+                if response.status_code not in (200, 206):
+                    raise Exception(
+                        f"Error fetching bytes {range_start}-{range_end}: "
+                        f"{response.status_code} {response.reason}"
+                    )
+
+                content = response.content
+
+                # A server that ignores the Range header answers 200 with the
+                # whole file. Returning that as if it were the requested range
+                # would silently corrupt the data.
+                expected_num_bytes = range_end - range_start + 1
+                if len(content) != expected_num_bytes:
+                    raise Exception(
+                        f"Unexpected number of bytes for range "
+                        f"{range_start}-{range_end}: got {len(content)}, "
+                        f"expected {expected_num_bytes}"
+                    )
+
+                return content
             except Exception as e:
                 if try_num == num_retries:
                     raise e  # pragma: no cover
