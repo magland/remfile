@@ -180,9 +180,9 @@ class RemFile:
                 return
 
         if chunk_index == self._smart_loader_last_chunk_index_accessed + 1:
-            # round up to the chunk sequence length times 1.7
+            # round up to the chunk sequence length times the increment factor
             self._smart_loader_chunk_sequence_length = round(
-                self._smart_loader_chunk_sequence_length * 1.7 + 0.5
+                self._smart_loader_chunk_sequence_length * self._chunk_increment_factor + 0.5
             )
             if (
                 self._smart_loader_chunk_sequence_length > self._max_chunk_size / self._min_chunk_size
@@ -198,7 +198,7 @@ class RemFile:
                     break
         else:
             self._smart_loader_chunk_sequence_length = round(
-                self._smart_loader_chunk_sequence_length / 1.7 + 0.5
+                self._smart_loader_chunk_sequence_length / self._chunk_increment_factor + 0.5
             )
         data_start = chunk_index * self._min_chunk_size
         data_end = (
