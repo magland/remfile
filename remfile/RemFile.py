@@ -3,6 +3,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 import requests
 from .DiskCache import DiskCache
+from .request_watermark import add_request_watermark
 
 default_min_chunk_size = 100 * 1024
 default_max_cache_size = 1e9
@@ -321,7 +322,7 @@ def _get_content_length(url: str, *, verbose: bool = False) -> int:
     """
     for try_num in range(_num_request_retries + 1):
         try:
-            response = requests.get(url, stream=True)
+            response = requests.get(add_request_watermark(url), stream=True)
             try:
                 if response.status_code != 200:
                     message = (
@@ -391,10 +392,10 @@ def _get_bytes(
         """
         for try_num in range(num_retries + 1):
             try:
-                actual_url = url
+                actual_url = add_request_watermark(url)
                 if _impose_request_failures_for_testing:
                     if try_num == 0:
-                        actual_url = "_error_" + url
+                        actual_url = "_error_" + actual_url
                 range_header = f"bytes={range_start}-{range_end}"
 
                 if session:
@@ -520,7 +521,9 @@ async def _create_lite(url: str):
         }
         '''
         js.eval(aa)
-        content_length = await js.getContentLengthOfRemoteFile(url)
+        content_length = await js.getContentLengthOfRemoteFile(
+            add_request_watermark(url)
+        )
         return int(content_length)
     size = await get_content_length_of_remote_file(url)
     return RemFile(
