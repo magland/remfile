@@ -3,6 +3,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 import requests
 from .DiskCache import DiskCache
+from .request_watermark import request_headers, request_url
 
 default_min_chunk_size = 100 * 1024
 default_max_cache_size = 1e9
@@ -321,7 +322,9 @@ def _get_content_length(url: str, *, verbose: bool = False) -> int:
     """
     for try_num in range(_num_request_retries + 1):
         try:
-            response = requests.get(url, stream=True)
+            response = requests.get(
+                request_url(url), headers=request_headers(), stream=True
+            )
             try:
                 if response.status_code != 200:
                     message = (
@@ -391,17 +394,20 @@ def _get_bytes(
         """
         for try_num in range(num_retries + 1):
             try:
-                actual_url = url
+                actual_url = request_url(url)
                 if _impose_request_failures_for_testing:
                     if try_num == 0:
                         actual_url = "_error_" + url
-                range_header = f"bytes={range_start}-{range_end}"
+                headers = {
+                    **request_headers(),
+                    "Range": f"bytes={range_start}-{range_end}",
+                }
 
                 if session:
                     # use session to avoid creating a new connection each time
-                    response = session.get(actual_url, headers={"Range": range_header})
+                    response = session.get(actual_url, headers=headers)
                 else:
-                    response = requests.get(actual_url, headers={'Range': range_header})
+                    response = requests.get(actual_url, headers=headers)
 
                 # requests does not raise on 4xx/5xx, so without these checks an
                 # error response body (for example an S3 <Error>...</Error>
@@ -520,7 +526,9 @@ async def _create_lite(url: str):
         }
         '''
         js.eval(aa)
-        content_length = await js.getContentLengthOfRemoteFile(url)
+        content_length = await js.getContentLengthOfRemoteFile(
+            request_url(url)
+        )
         return int(content_length)
     size = await get_content_length_of_remote_file(url)
     return RemFile(
