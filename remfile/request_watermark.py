@@ -20,7 +20,7 @@ try:
 except importlib.metadata.PackageNotFoundError:  # pragma: no cover
     _version = "unknown"
 
-USER_AGENT = f"remfile/{_version} (+https://github.com/magland/remfile)"
+USER_AGENT = f"remfile/{_version}"
 
 REQUEST_WATERMARK_PARAM = "source"
 REQUEST_WATERMARK_VALUE = "remfile"
