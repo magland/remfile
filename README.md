@@ -44,6 +44,17 @@ Furthermore, since the url can be an object with a get_url() method, it is possi
 
 A file-like object is created that reads the remote file in chunks using the requests library. A relatively small default chunk size is used, but when remfile detects that a large data array is being accessed, it adaptively switches to larger chunk sizes. For very large data arrays, the system will use multiple threads to read the data in parallel.
 
+## Timeouts and closing
+
+Each HTTP request times out after 30 seconds without connecting or 60 seconds without receiving data, so that a stalled connection cannot hang forever. A request that times out is retried like any other failed request. Pass `timeout` to change this (a number, or a `(connect, read)` tuple, as accepted by requests), or `timeout=None` for no timeout.
+
+A file can be used as a context manager, which closes its connections on exit:
+
+```python
+with remfile.File(url) as file, h5py.File(file, 'r') as f:
+    print(f['/'].keys())
+```
+
 ## Disk caching
 
 The following example shows how to use disk caching. It is important to note that this is not an LRU cache, so there is no cleanup operation. The cache will grow until the disk is full. Therefore, you are responsible for deleting the directory when you are done with it.
