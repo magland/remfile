@@ -1,4 +1,4 @@
-from typing import Union, Any
+from typing import Union, Any, Tuple
 import time
 from concurrent.futures import ThreadPoolExecutor
 import requests
@@ -10,6 +10,9 @@ default_max_cache_size = 1e9
 default_chunk_increment_factor = 1.7
 default_bytes_per_thread = 4 * 1024 * 1024
 default_max_threads = 1
+# (connect, read) timeouts in seconds of each HTTP request, so that a stalled
+# connection fails (and is retried) instead of hanging forever.
+default_timeout = (30, 60)
 
 
 class RemFile:
@@ -19,6 +22,7 @@ class RemFile:
         *,
         verbose: bool = False,
         disk_cache: Union[DiskCache, None] = None,
+        timeout: Union[float, Tuple[float, float], None] = default_timeout,
         _min_chunk_size: int = default_min_chunk_size,
         _max_cache_size: int = default_max_cache_size,
         _chunk_increment_factor: int = default_chunk_increment_factor,
@@ -35,6 +39,7 @@ class RemFile:
             url (str): The url of the remote file, or an object with a .get_url() method. The latter is useful if the url is a presigned AWS URL that expires after a certain amount of time.
             verbose (bool, optional): Whether to print info for debugging. Defaults to False.
             disk_cache (DiskCache, optional): A disk cache for storing the chunks of the file. Defaults to None.
+            timeout (float or (float, float), optional): The timeout in seconds of each HTTP request, as accepted by requests: a single value, or a (connect, read) tuple. A request that times out is retried like any other failed request. None means no timeout, so that a stalled connection can hang forever. Defaults to (30, 60).
             _min_chunk_size (int, optional): The minimum chunk size. When reading, the chunks will be loaded in multiples of this size.
             _max_cache_size (int, optional): The maximum number of bytes to keep in the cache.
             _chunk_increment_factor (int, optional): The factor by which to increase the number of chunks to load when the system detects that the chunks are being loaded in order.
@@ -48,6 +53,7 @@ class RemFile:
         self._url = url
         self._verbose = verbose
         self._disk_cache = disk_cache
+        self._timeout = timeout
         self._min_chunk_size = _min_chunk_size
         self._max_chunks_in_cache = int(_max_cache_size / _min_chunk_size)
         self._chunk_increment_factor = _chunk_increment_factor
@@ -70,7 +76,7 @@ class RemFile:
 
         if _size is None:
             self.length = _get_content_length(
-                _get_url_str(self._url), verbose=verbose
+                _get_url_str(self._url), verbose=verbose, timeout=timeout
             )
         else:
             self.length = _size
@@ -224,6 +230,7 @@ class RemFile:
             verbose=self._verbose,
             bytes_per_thread=self._bytes_per_thread,
             max_threads=self._max_threads,
+            timeout=self._timeout,
             _impose_request_failures_for_testing=self._impose_request_failures_for_testing,
         )
         if self._smart_loader_chunk_sequence_length == 1:
@@ -282,7 +289,15 @@ class RemFile:
         return self._position
 
     def close(self):
-        pass
+        """Close the connections of the file's requests session, if any."""
+        if self.session is not None:
+            self.session.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        self.close()
 
 
 def _key_for_disk_cache(url: str, min_chunk_size: int, chunk_index: int):
@@ -309,7 +324,9 @@ def _is_permanent_http_error(status_code: int) -> bool:
     return 400 <= status_code < 500 and status_code != 429
 
 
-def _get_content_length(url: str, *, verbose: bool = False) -> int:
+def _get_content_length(
+    url: str, *, verbose: bool = False, timeout=default_timeout
+) -> int:
     """Get the length of a remote file, retrying on transient failures.
 
     This is the first request of a file's life. It used to be a bare
@@ -323,7 +340,10 @@ def _get_content_length(url: str, *, verbose: bool = False) -> int:
     for try_num in range(_num_request_retries + 1):
         try:
             response = requests.get(
-                request_url(url), headers=request_headers(), stream=True
+                request_url(url),
+                headers=request_headers(),
+                stream=True,
+                timeout=timeout,
             )
             try:
                 if response.status_code != 200:
@@ -363,6 +383,7 @@ def _get_bytes(
     verbose=False,
     bytes_per_thread: int,
     max_threads: int,
+    timeout=default_timeout,
     _impose_request_failures_for_testing=False,
 ):
     """Get bytes from a remote file.
@@ -373,6 +394,7 @@ def _get_bytes(
         end_byte (int): The last byte to get.
         bytes_per_thread (int): The minimum number of bytes to load in each thread.
         max_threads (int): The maximum number of threads to use when loading the file.
+        timeout: The timeout of each request (see RemFile).
         verbose (bool, optional): Whether to print info for debugging. Defaults to False.
 
     Returns:
@@ -405,9 +427,13 @@ def _get_bytes(
 
                 if session:
                     # use session to avoid creating a new connection each time
-                    response = session.get(actual_url, headers=headers)
+                    response = session.get(
+                        actual_url, headers=headers, timeout=timeout
+                    )
                 else:
-                    response = requests.get(actual_url, headers=headers)
+                    response = requests.get(
+                        actual_url, headers=headers, timeout=timeout
+                    )
 
                 # requests does not raise on 4xx/5xx, so without these checks an
                 # error response body (for example an S3 <Error>...</Error>
