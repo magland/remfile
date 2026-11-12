@@ -93,13 +93,13 @@ class RemFile(io.RawIOBase):
         # for use with pyodide/jupyterlite
         return await _create_lite(url)
 
-    def readable(self):
+    def readable(self) -> bool:
         return True
 
-    def seekable(self):
+    def seekable(self) -> bool:
         return True
 
-    def read(self, size=-1):
+    def read(self, size: Union[int, None] = -1) -> bytes:
         """Read bytes from the file.
 
         Args:
@@ -166,7 +166,7 @@ class RemFile(io.RawIOBase):
 
         return ret
 
-    def readinto(self, buffer):
+    def readinto(self, buffer) -> int:
         view = memoryview(buffer).cast("B")
         data = self.read(len(view))
         view[: len(data)] = data
@@ -277,7 +277,7 @@ class RemFile(io.RawIOBase):
             chunk_index + self._smart_loader_chunk_sequence_length - 1
         )
 
-    def seek(self, offset: int, whence: int = 0):
+    def seek(self, offset: int, whence: int = 0) -> int:
         """Seek to a position in the file.
 
         Args:
@@ -302,10 +302,10 @@ class RemFile(io.RawIOBase):
             )  # pragma: no cover
         return self._position
 
-    def tell(self):
+    def tell(self) -> int:
         return self._position
 
-    def close(self):
+    def close(self) -> None:
         """Close the connections of the file's requests session, if any."""
         if self.session is not None:
             self.session.close()
