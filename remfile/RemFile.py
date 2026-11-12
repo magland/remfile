@@ -52,8 +52,6 @@ class RemFile(io.RawIOBase):
             _use_session: Whether to use a requests.Session object for making requests. Defaults to True.
         """
         super().__init__()
-        # Set before anything can fail, so that close() (also called when a
-        # partially constructed file is garbage collected) can rely on it
         self.session = None
         self._url = url
         self._verbose = verbose
