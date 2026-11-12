@@ -52,6 +52,9 @@ class RemFile(io.RawIOBase):
             _use_session: Whether to use a requests.Session object for making requests. Defaults to True.
         """
         super().__init__()
+        # Set before anything can fail, so that close() (also called when a
+        # partially constructed file is garbage collected) can rely on it
+        self.session = None
         self._url = url
         self._verbose = verbose
         self._disk_cache = disk_cache
@@ -85,8 +88,6 @@ class RemFile(io.RawIOBase):
 
         if _use_session:
             self.session = requests.Session()
-        else:
-            self.session = None
 
     async def create_lite(url: str):
         # for use with pyodide/jupyterlite
@@ -306,7 +307,7 @@ class RemFile(io.RawIOBase):
 
     def close(self):
         """Close the connections of the file's requests session, if any."""
-        if getattr(self, "session", None) is not None:
+        if self.session is not None:
             self.session.close()
         super().close()
 
