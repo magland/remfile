@@ -28,7 +28,7 @@ def test_example2(disk_cache=None):
         _max_cache_size=10 * 1024 * 1024, # low cache size for code coverage
         _chunk_increment_factor=2.5, # high increment factor for code coverage
         _bytes_per_thread=500 * 1024, # low bytes per thread for code coverage
-        _max_threads=3, # low max threads for code coverage
+        max_threads=3, # low max threads for code coverage
         _max_chunk_size=3 * 1024 * 1024, # low max chunk size for code coverage
     ), 'r')
 

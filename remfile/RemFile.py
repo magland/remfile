@@ -1,5 +1,6 @@
 from typing import Union, Any, Tuple
 import time
+import warnings
 from concurrent.futures import ThreadPoolExecutor
 import requests
 from .DiskCache import DiskCache
@@ -23,11 +24,13 @@ class RemFile:
         verbose: bool = False,
         disk_cache: Union[DiskCache, None] = None,
         timeout: Union[float, Tuple[float, float], None] = default_timeout,
+        size: Union[int, None] = None,
+        max_threads: int = default_max_threads,
         _min_chunk_size: int = default_min_chunk_size,
         _max_cache_size: int = default_max_cache_size,
         _chunk_increment_factor: int = default_chunk_increment_factor,
         _bytes_per_thread: int = default_bytes_per_thread,
-        _max_threads: int = default_max_threads,
+        _max_threads: Union[int, None] = None,
         _max_chunk_size: int = 100 * 1024 * 1024,
         _impose_request_failures_for_testing: bool = False,
         _size: Union[int, None] = None,
@@ -40,16 +43,37 @@ class RemFile:
             verbose (bool, optional): Whether to print info for debugging. Defaults to False.
             disk_cache (DiskCache, optional): A disk cache for storing the chunks of the file. Defaults to None.
             timeout (float or (float, float), optional): The timeout in seconds of each HTTP request, as accepted by requests: a single value, or a (connect, read) tuple. A request that times out is retried like any other failed request. None means no timeout, so that a stalled connection can hang forever. Defaults to (30, 60).
+            size (int, optional): The size of the file in bytes, if known. If not provided, it is determined with a request to the url.
+            max_threads (int, optional): The maximum number of threads to use when loading the file. Defaults to 1.
             _min_chunk_size (int, optional): The minimum chunk size. When reading, the chunks will be loaded in multiples of this size.
             _max_cache_size (int, optional): The maximum number of bytes to keep in the cache.
             _chunk_increment_factor (int, optional): The factor by which to increase the number of chunks to load when the system detects that the chunks are being loaded in order.
             _bytes_per_thread (int, optional): The minimum number of bytes to load in each thread.
-            _max_threads (int, optional): The maximum number of threads to use when loading the file.
+            _max_threads (int, optional): Deprecated alias of max_threads.
             _max_chunk_size (int, optional): The maximum chunk size. When reading, the chunks will be loaded in multiples of the minimum chunk size up to this size.
             _impose_request_failures_for_testing (bool, optional): Whether to impose request failures for testing purposes. Defaults to False.
-            _size: The size of the file in bytes. If not provided, the size will be determined by making a GET request to the file.
+            _size: Deprecated alias of size.
             _use_session: Whether to use a requests.Session object for making requests. Defaults to True.
         """
+        if _size is not None:
+            if size is not None:
+                raise TypeError("Pass size or _size, not both")
+            warnings.warn(
+                "The _size argument is deprecated; use size instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            size = _size
+        if _max_threads is not None:
+            if max_threads != default_max_threads:
+                raise TypeError("Pass max_threads or _max_threads, not both")
+            warnings.warn(
+                "The _max_threads argument is deprecated; use max_threads instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            max_threads = _max_threads
+
         self._url = url
         self._verbose = verbose
         self._disk_cache = disk_cache
@@ -58,7 +82,7 @@ class RemFile:
         self._max_chunks_in_cache = int(_max_cache_size / _min_chunk_size)
         self._chunk_increment_factor = _chunk_increment_factor
         self._bytes_per_thread = _bytes_per_thread
-        self._max_threads = _max_threads
+        self._max_threads = max_threads
         self._max_chunk_size = _max_chunk_size
         self._impose_request_failures_for_testing = _impose_request_failures_for_testing
         self._chunks = {}
@@ -71,15 +95,15 @@ class RemFile:
         self._smart_loader_last_chunk_index_accessed = -99
         self._smart_loader_chunk_sequence_length = 1
 
-        if _size is None or _use_session is True:
+        if size is None or _use_session is True:
             _assert_we_are_not_using_pyodide()
 
-        if _size is None:
+        if size is None:
             self.length = _get_content_length(
                 _get_url_str(self._url), verbose=verbose, timeout=timeout
             )
         else:
-            self.length = _size
+            self.length = size
 
         if _use_session:
             self.session = requests.Session()
@@ -559,7 +583,7 @@ async def _create_lite(url: str):
     size = await get_content_length_of_remote_file(url)
     return RemFile(
         url=url,
-        _size=size,
+        size=size,
         _use_session=False
     )
 
