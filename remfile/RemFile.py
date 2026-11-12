@@ -1,4 +1,5 @@
 from typing import Union, Any, Tuple
+import io
 import time
 from concurrent.futures import ThreadPoolExecutor
 import requests
@@ -15,7 +16,7 @@ default_max_threads = 1
 default_timeout = (30, 60)
 
 
-class RemFile:
+class RemFile(io.RawIOBase):
     def __init__(
         self,
         url: Union[str, Any],
@@ -50,6 +51,8 @@ class RemFile:
             _size: The size of the file in bytes. If not provided, the size will be determined by making a GET request to the file.
             _use_session: Whether to use a requests.Session object for making requests. Defaults to True.
         """
+        super().__init__()
+        self.session = None
         self._url = url
         self._verbose = verbose
         self._disk_cache = disk_cache
@@ -83,29 +86,31 @@ class RemFile:
 
         if _use_session:
             self.session = requests.Session()
-        else:
-            self.session = None
 
     async def create_lite(url: str):
         # for use with pyodide/jupyterlite
         return await _create_lite(url)
 
-    def read(self, size=None):
+    def readable(self) -> bool:
+        return True
+
+    def seekable(self) -> bool:
+        return True
+
+    def read(self, size: Union[int, None] = -1) -> bytes:
         """Read bytes from the file.
 
         Args:
-            size (_type_): The number of bytes to read.
-
-        Raises:
-            Exception: If the size argument is not provided.
+            size (int, optional): The number of bytes to read. None or a negative value reads to the end of the file.
 
         Returns:
-            bytes: The bytes read.
+            bytes: The bytes read, fewer than size at the end of the file.
         """
-        if size is None:
-            raise Exception(
-                "The size argument must be provided in remfile"
-            )  # pragma: no cover
+        remaining = max(self.length - self._position, 0)
+        if size is None or size < 0 or size > remaining:
+            size = remaining
+        if size == 0:
+            return b""
 
         chunk_start_index = self._position // self._min_chunk_size
         chunk_end_index = (self._position + size - 1) // self._min_chunk_size
@@ -158,6 +163,12 @@ class RemFile:
             ]
 
         return ret
+
+    def readinto(self, buffer) -> int:
+        view = memoryview(buffer).cast("B")
+        data = self.read(len(view))
+        view[: len(data)] = data
+        return len(data)
 
     def _load_chunk(self, chunk_index: int, chunks_needed: int = 1):
         """Load a chunk of the file.
@@ -264,12 +275,15 @@ class RemFile:
             chunk_index + self._smart_loader_chunk_sequence_length - 1
         )
 
-    def seek(self, offset: int, whence: int = 0):
+    def seek(self, offset: int, whence: int = 0) -> int:
         """Seek to a position in the file.
 
         Args:
             offset (int): The offset to seek to.
             whence (int, optional): The code for the reference point for the offset. Defaults to 0.
+
+        Returns:
+            int: The new position.
 
         Raises:
             ValueError: If the whence argument is not 0, 1, or 2.
@@ -284,20 +298,16 @@ class RemFile:
             raise ValueError(
                 "Invalid argument: 'whence' must be 0, 1, or 2."
             )  # pragma: no cover
-
-    def tell(self):
         return self._position
 
-    def close(self):
+    def tell(self) -> int:
+        return self._position
+
+    def close(self) -> None:
         """Close the connections of the file's requests session, if any."""
         if self.session is not None:
             self.session.close()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc_info):
-        self.close()
+        super().close()
 
 
 def _key_for_disk_cache(url: str, min_chunk_size: int, chunk_index: int):
